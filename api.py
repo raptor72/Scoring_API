@@ -37,11 +37,17 @@ GENDERS = {
 
 
 class CharField(object):
-    pass
+    def __init__(self, required, nullable):
+        self.required = required
+        self.nullable = nullable
+        self.valid = False
 
 
 class ArgumentsField(object):
-    pass
+    def __init__(self, required, nullable):
+        self.required = required
+        self.nullable = nullable
+        self.valid = False
 
 
 class EmailField(CharField):
@@ -54,6 +60,10 @@ class PhoneField(object):
 
 class DateField(object):
     pass
+#    def __init__(self, required=True, nullable=True):
+#        self.id = id
+#        self.required = required
+#        self.nullable = nullable
 
 
 class BirthDayField(object):
@@ -66,21 +76,29 @@ class GenderField(object):
 
 class ClientIDsField(object):
     pass
+#    def __init__(self, id=1, required=True):
+#        self.id = id
+#        self.required = required
+
+    def validate(self, ids):
+        if (not isinstance(ids, list) or
+                not all(isinstance(i, int) for i in ids)):
+            raise ValueError("Client IDs should be list of ints")
 
 
 class ClientsInterestsRequest(object):
-    client_ids = ClientIDsField(required=True)
-    date = DateField(required=False, nullable=True)
-
+#    client_ids = ClientIDsField(required=True)
+#    date = DateField(required=False, nullable=True)
+    pass
 
 class OnlineScoreRequest(object):
-    first_name = CharField(required=False, nullable=True)
-    last_name = CharField(required=False, nullable=True)
-    email = EmailField(required=False, nullable=True)
-    phone = PhoneField(required=False, nullable=True)
-    birthday = BirthDayField(required=False, nullable=True)
-    gender = GenderField(required=False, nullable=True)
-
+#    first_name = CharField(required=False, nullable=True)
+#    last_name = CharField(required=False, nullable=True)
+#    email = EmailField(required=False, nullable=True)
+#    phone = PhoneField(required=False, nullable=True)
+#    birthday = BirthDayField(required=False, nullable=True)
+#    gender = GenderField(required=False, nullable=True)
+    pass
 
 class MethodRequest(object):
     account = CharField(required=False, nullable=True)
@@ -88,6 +106,7 @@ class MethodRequest(object):
     token = CharField(required=True, nullable=True)
     arguments = ArgumentsField(required=True, nullable=True)
     method = CharField(required=True, nullable=False)
+
 
     @property
     def is_admin(self):
@@ -107,7 +126,7 @@ def check_auth(request):
 def method_handler(request, ctx, store):
     response, code = None, None
     return response, code
-
+#    return request, 200
 
 class MainHTTPHandler(BaseHTTPRequestHandler):
     router = {
@@ -116,11 +135,14 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
     store = None
 
     def get_request_id(self, headers):
+        print(headers) #User-Agent: curl/7.29.0 Host: 127.0.0.1:8080 Accept: */* Content-Type: application/json Content-Length: 388
         return headers.get('HTTP_X_REQUEST_ID', uuid.uuid4().hex)
 
     def do_POST(self):
         response, code = {}, OK
         context = {"request_id": self.get_request_id(self.headers)}
+#        print("context is:", context) # ('context is:', {'request_id': '4e04c1d6748442c0aa996e2357eb7524'})
+
         request = None
         try:
             data_string = self.rfile.read(int(self.headers['Content-Length']))
@@ -129,11 +151,15 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
             code = BAD_REQUEST
 
         if request:
+#            print("request is:", request) #'request is:', {u'arguments': {u'first_name': u'\u0430\u0432', u'last_name': u'\u043e\u0432', u'gender': 1, u'phone': u'79175002040', u'birthday': u'01.01.1990', u'email': u'stupnikov@otus.ru'}, u'account': u'horns&hoofs', u'login': u'h&f', u'token': u'55cc9ce545bcd144300fe9efc28e65d415b923ebb6be1e19d2750a2c03e80dd209a27954dca045e5bb12418e7d89b6d718a9e35af34e14e1d5bcd5a08f21fc95', u'method': u'online_score'}
             path = self.path.strip("/")
-            logging.info("%s: %s %s" % (self.path, data_string, context["request_id"]))
+#            print(path) # mathod
+#            logging.info("%s: %s %s" % (self.path, data_string, context["request_id"]))
             if path in self.router:
                 try:
                     response, code = self.router[path]({"body": request, "headers": self.headers}, context, self.store)
+#                    print(response) # None
+#                    print(code)     # None
                 except Exception, e:
                     logging.exception("Unexpected error: %s" % e)
                     code = INTERNAL_ERROR
