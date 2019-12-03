@@ -9,6 +9,7 @@ import hashlib
 import uuid
 from optparse import OptionParser
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+#from http.server import HTTPServer, BaseHTTPRequestHandler
 
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
@@ -125,8 +126,8 @@ def check_auth(request):
 
 def method_handler(request, ctx, store):
     response, code = None, None
-    return response, code
-#    return request, 200
+#    return response, code
+    return "None", 200
 
 class MainHTTPHandler(BaseHTTPRequestHandler):
     router = {
@@ -158,9 +159,10 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
             if path in self.router:
                 try:
                     response, code = self.router[path]({"body": request, "headers": self.headers}, context, self.store)
+#                    response, code = method_handler({"body": request, "headers": self.headers}, context, self.store)
 #                    print(response) # None
 #                    print(code)     # None
-                except Exception, e:
+                except Exception as e:
                     logging.exception("Unexpected error: %s" % e)
                     code = INTERNAL_ERROR
             else:
@@ -173,6 +175,7 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
             r = {"response": response, "code": code}
         else:
             r = {"error": response or ERRORS.get(code, "Unknown Error"), "code": code}
+        print("fefef" + str(r)) # fefef{'code': 200, 'response': 'None'}
         context.update(r)
         logging.info(context)
         self.wfile.write(json.dumps(r))
