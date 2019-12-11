@@ -128,6 +128,17 @@ class ClientIDsField(object):
     def prepare_value(self, value):
         return super().prepare_value(value)
 
+class FieldOwner(type):
+    def __new__(meta, name, bases, attrs):
+        new_class = super(DeclarativeFieldsMetaclass, meta).__new__(meta, name, bases, attrs)
+        fields = {}
+        for field_name, field in attrs.items():
+            if isinstance(field, Field):
+                fields[field_name] = field
+        new_class.fields = fields
+        return super(FieldOwner, meta).__new__(meta, name, bases, attrs)
+
+
 class ClientsInterestsRequest(object):
 #    client_ids = ClientIDsField(required=True)
 #    date = DateField(required=False, nullable=True)
