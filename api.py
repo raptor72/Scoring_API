@@ -37,55 +37,96 @@ GENDERS = {
 }
 
 
-class CharField(object):
-    def __init__(self, required, nullable):
+class Field(object):
+    emptys = (None, (), [], '')
+
+    def __init__(self, required=False, nullable=False):
         self.required = required
         self.nullable = nullable
-        self.valid = False
+
+#    def validate(self, value):
+#        pass
+
+#    def prepare_value(self, value):
+#        return value
+
+class CharField(Field):
+   def validate(self, value):
+        if not isinstance(value, string_types):
+            raise ValueError("This field must be a string")
+
+    def prepare_value(self, value):
+        return str(value)
+
+
 
 
 class ArgumentsField(object):
-    def __init__(self, required, nullable):
-        self.required = required
-        self.nullable = nullable
-        self.valid = False
+    def validate(self, value):
+        if not isinstance(value, dict):
+            raise ValueError("This field must be a dict")
 
+    def prepare_value(self, value):
+        return super().prepare_value(value)
 
 class EmailField(CharField):
-    pass
+    def validate(self, value):
+#        super(EmailField, self).validate(value)  # should test it comment
+        if "@" not in value:
+            raise ValueError("Invalid email address")
+
+    def prepare_value(self, value):
+        return super().prepare_value(value)
 
 
 class PhoneField(object):
-    pass
+    def validate(self, value):
+        if not isinstance(value, string_types) and not isinstance(value, int):
+            raise ValueError("Phone number must be numeric or string value")
+        if not len(str(value)) == 11 or not str(value).startswith("7")  or not str(value).isdigit():
+            raise ValueError("Phone number should be 7**********")
 
+    def prepare_value(self, value):
+        return super().prepare_value(value)
 
 class DateField(object):
-    pass
-#    def __init__(self, required=True, nullable=True):
-#        self.id = id
-#        self.required = required
-#        self.nullable = nullable
+    def validate(self, value):
+        try:
+            datetime.datetime.strptime(value, '%d.%m.%Y')
+        except ValueError:
+            raise ValueError("Incorect date format, should be DD.MM.YYYY")
 
+    def prepare_value(self, value):
+        return datetime.datetime.strptime(value, '%d.%m.%Y')
 
 class BirthDayField(object):
-    pass
+    def validate(self, value):
+        super(BirthDayField, self).validate(value)
+        bdate = datetime.datetime.strptime(value, '%d.%m.%Y')
+        if datetime.datetime.now().year - bdate.year > 70:
+            raise ValueError("Incorrect birth day")
+
+    def prepare_value(self, value):
+        return datetime.datetime.strptime(value, '%d.%m.%Y')
 
 
 class GenderField(object):
-    pass
+    def validate(self, value):
+        if value not in GENDERS:
+            raise ValueError("Gender must be equal to 0, 1 or 2")
+
+    def prepare_value(self, value):
+        return int(value)
 
 
 class ClientIDsField(object):
-    pass
-#    def __init__(self, id=1, required=True):
-#        self.id = id
-#        self.required = required
-
-    def validate(self, ids):
-        if (not isinstance(ids, list) or
-                not all(isinstance(i, int) for i in ids)):
+    def validate(self, values):
+        if (not isinstance(values, list) or
+                not all(isinstance(i, int) for i in values)):
             raise ValueError("Client IDs should be list of ints")
 
+    def prepare_value(self, value):
+        return super().prepare_value(value)
 
 class ClientsInterestsRequest(object):
 #    client_ids = ClientIDsField(required=True)
