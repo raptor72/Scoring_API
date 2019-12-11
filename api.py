@@ -138,6 +138,41 @@ class FieldOwner(type):
         new_class.fields = fields
         return super(FieldOwner, meta).__new__(meta, name, bases, attrs)
 
+class BaseRequest(object):
+    __metaclass__ = FieldOwner
+
+    def __init__(self, **kwargs):
+        self._errors = {}
+        self.base_fields = []
+        for field_name, value in kwargs.items():
+            setattr(self, field_name, value)
+            self.base_fields.append(field_name)
+
+    def __getitem__(self, name):
+        """Return field's value in appropriate format"""
+        if name in self.base_fields:
+            value = getattr(self, str(name), None)
+            field = self.fields[name]
+            return field.prepare_value(value)
+        else:
+            return None
+
+    def validate(self):
+        for name, field in self.fields.items():
+            if name not in self.base_fields:
+                if field.required:
+                    self._errors[name] = "This field is required"
+                continue
+
+            value = getattr(self, name)
+            if value in field.empty_values and not field.nullable:
+                self._errors[name] = "This field can't be blank"
+
+            try:
+                field.validate(value)
+            except ValueError as e:
+                self._errors[name] = e
+
 
 class ClientsInterestsRequest(object):
 #    client_ids = ClientIDsField(required=True)
