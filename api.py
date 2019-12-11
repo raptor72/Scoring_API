@@ -224,27 +224,16 @@ class MethodRequest(BaseRequest):
         return self.login == ADMIN_LOGIN
 
 
-#def check_auth(request):
-#    if request.is_admin:
-#        digest = hashlib.sha512(datetime.datetime.now().strftime("%Y%m%d%H") + ADMIN_SALT).hexdigest()
-#    else:
-#        digest = hashlib.sha512(request.account + request.login + SALT).hexdigest()
-#    if digest == request.token:
-#        return True
-#    return False
-
 def check_auth(request):
-    return True
-#    if request.login == ADMIN_LOGIN:
-#        key = datetime.datetime.now().strftime("%Y%m%d%H") + ADMIN_SALT
-#        digest = hashlib.sha512(key.encode('utf-8')).hexdigest()
-#    else:
-#        key = request.account + request.login + SALT
-#        digest = hashlib.sha512(key.encode('utf-8')).hexdigest()
+    if request.is_admin:
+        digest = hashlib.sha512(datetime.datetime.now().strftime("%Y%m%d%H") + ADMIN_SALT).hexdigest()
+    else:
+        digest = hashlib.sha512(request.account + request.login + SALT).hexdigest()
+    print("digest is " + digest)
 #    if digest == request.token:
 #        return True
 #    return False
-
+    return True
 
 def online_score_handler(request, ctx, store):
     r = OnlineScoreRequest(**request.arguments)
