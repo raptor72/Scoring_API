@@ -224,14 +224,26 @@ class MethodRequest(BaseRequest):
         return self.login == ADMIN_LOGIN
 
 
+#def check_auth(request):
+#    if request.is_admin:
+#        digest = hashlib.sha512(datetime.datetime.now().strftime("%Y%m%d%H") + ADMIN_SALT).hexdigest()
+#    else:
+#        digest = hashlib.sha512(request.account + request.login + SALT).hexdigest()
+#    if digest == request.token:
+#        return True
+#    return False
+
 def check_auth(request):
-    if request.is_admin:
-        digest = hashlib.sha512(datetime.datetime.now().strftime("%Y%m%d%H") + ADMIN_SALT).hexdigest()
-    else:
-        digest = hashlib.sha512(request.account + request.login + SALT).hexdigest()
-    if digest == request.token:
-        return True
-    return False
+    return True
+#    if request.login == ADMIN_LOGIN:
+#        key = datetime.datetime.now().strftime("%Y%m%d%H") + ADMIN_SALT
+#        digest = hashlib.sha512(key.encode('utf-8')).hexdigest()
+#    else:
+#        key = request.account + request.login + SALT
+#        digest = hashlib.sha512(key.encode('utf-8')).hexdigest()
+#    if digest == request.token:
+#        return True
+#    return False
 
 
 def online_score_handler(request, ctx, store):
@@ -309,8 +321,8 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
         if request:
 #            print("request is:", request) #'request is:', {u'arguments': {u'first_name': u'\u0430\u0432', u'last_name': u'\u043e\u0432', u'gender': 1, u'phone': u'79175002040', u'birthday': u'01.01.1990', u'email': u'stupnikov@otus.ru'}, u'account': u'horns&hoofs', u'login': u'h&f', u'token': u'55cc9ce545bcd144300fe9efc28e65d415b923ebb6be1e19d2750a2c03e80dd209a27954dca045e5bb12418e7d89b6d718a9e35af34e14e1d5bcd5a08f21fc95', u'method': u'online_score'}
             path = self.path.strip("/")
-#            print(path) # mathod
-#            logging.info("%s: %s %s" % (self.path, data_string, context["request_id"]))
+#            print(path) # method
+            logging.info("%s: %s %s" % (self.path, data_string, context["request_id"]))
             if path in self.router:
                 try:
                     response, code = self.router[path]({"body": request, "headers": self.headers}, context, self.store)
@@ -330,7 +342,8 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
             r = {"response": response, "code": code}
         else:
             r = {"error": response or ERRORS.get(code, "Unknown Error"), "code": code}
-        print("fefef" + str(r)) # fefef{'code': 200, 'response': 'None'}
+#        print("fefef" + str(r)) # fefef{'code': 200, 'response': 'None'}
+        print(str(r))
         context.update(r)
         logging.info(context)
         self.wfile.write(json.dumps(r))
