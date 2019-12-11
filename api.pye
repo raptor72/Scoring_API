@@ -10,6 +10,10 @@ import uuid
 from optparse import OptionParser
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 #from http.server import HTTPServer, BaseHTTPRequestHandler
+from six import string_types
+from scoring import get_score, get_interests
+#from store import Store
+Store = None
 
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
@@ -44,30 +48,31 @@ class Field(object):
         self.required = required
         self.nullable = nullable
 
-#    def validate(self, value):
-#        pass
+    def validate(self, value):
+        pass
 
-#    def prepare_value(self, value):
-#        return value
+    def get_value(self, value):
+        return value
+
 
 class CharField(Field):
-   def validate(self, value):
+    def validate(self, value):
         if not isinstance(value, string_types):
             raise ValueError("This field must be a string")
 
-    def prepare_value(self, value):
+    def get_value(self, value):
         return str(value)
 
 
 
 
-class ArgumentsField(object):
+class ArgumentsField(Field):
     def validate(self, value):
         if not isinstance(value, dict):
             raise ValueError("This field must be a dict")
 
-    def prepare_value(self, value):
-        return super().prepare_value(value)
+    def get_value(self, value):
+        return super().get_value(value)
 
 class EmailField(CharField):
     def validate(self, value):
@@ -75,69 +80,72 @@ class EmailField(CharField):
         if "@" not in value:
             raise ValueError("Invalid email address")
 
-    def prepare_value(self, value):
-        return super().prepare_value(value)
+    def get_value(self, value):
+        return super().get_value(value)
 
 
-class PhoneField(object):
+class PhoneField(Field):
     def validate(self, value):
         if not isinstance(value, string_types) and not isinstance(value, int):
             raise ValueError("Phone number must be numeric or string value")
         if not len(str(value)) == 11 or not str(value).startswith("7")  or not str(value).isdigit():
             raise ValueError("Phone number should be 7**********")
 
-    def prepare_value(self, value):
-        return super().prepare_value(value)
+    def get_value(self, value):
+        return super().get_value(value)
 
-class DateField(object):
+class DateField(Field):
     def validate(self, value):
         try:
             datetime.datetime.strptime(value, '%d.%m.%Y')
         except ValueError:
             raise ValueError("Incorect date format, should be DD.MM.YYYY")
 
-    def prepare_value(self, value):
+    def get_value(self, value):
         return datetime.datetime.strptime(value, '%d.%m.%Y')
 
-class BirthDayField(object):
+class BirthDayField(Field):
     def validate(self, value):
         super(BirthDayField, self).validate(value)
         bdate = datetime.datetime.strptime(value, '%d.%m.%Y')
         if datetime.datetime.now().year - bdate.year > 70:
             raise ValueError("Incorrect birth day")
 
-    def prepare_value(self, value):
+    def get_value(self, value):
         return datetime.datetime.strptime(value, '%d.%m.%Y')
 
 
-class GenderField(object):
+class GenderField(Field):
     def validate(self, value):
         if value not in GENDERS:
             raise ValueError("Gender must be equal to 0, 1 or 2")
 
-    def prepare_value(self, value):
+    def get_value(self, value):
         return int(value)
 
 
-class ClientIDsField(object):
+class ClientIDsField(Field):
     def validate(self, values):
         if (not isinstance(values, list) or
                 not all(isinstance(i, int) for i in values)):
             raise ValueError("Client IDs should be list of ints")
 
-    def prepare_value(self, value):
-        return super().prepare_value(value)
+    def get_value(self, value):
+        return super().get_value(value)
 
 class FieldOwner(type):
     def __new__(meta, name, bases, attrs):
-        new_class = super(DeclarativeFieldsMetaclass, meta).__new__(meta, name, bases, attrs)
+        new_class = super(FieldOwner, meta).__new__(meta, name, bases, attrs)
         fields = {}
         for field_name, field in attrs.items():
             if isinstance(field, Field):
                 fields[field_name] = field
         new_class.fields = fields
-        return super(FieldOwner, meta).__new__(meta, name, bases, attrs)
+#        return super(FieldOwner, meta).__new__(meta, name, bases, attrs)
+        return new_class
 
+
+#class BaseRequest(object, metaclass=FieldOwner):
 class BaseRequest(object):
     __metaclass__ = FieldOwner
 
@@ -153,7 +161,7 @@ class BaseRequest(object):
         if name in self.base_fields:
             value = getattr(self, str(name), None)
             field = self.fields[name]
-            return field.prepare_value(value)
+            return field.get_value(value)
         else:
             return None
 
@@ -173,22 +181,38 @@ class BaseRequest(object):
             except ValueError as e:
                 self._errors[name] = e
 
+    @property
+    def errors(self):
+        return self._errors
 
-class ClientsInterestsRequest(object):
-#    client_ids = ClientIDsField(required=True)
-#    date = DateField(required=False, nullable=True)
-    pass
+    def is_valid(self):
+        return not self.errors
 
-class OnlineScoreRequest(object):
-#    first_name = CharField(required=False, nullable=True)
-#    last_name = CharField(required=False, nullable=True)
-#    email = EmailField(required=False, nullable=True)
-#    phone = PhoneField(required=False, nullable=True)
-#    birthday = BirthDayField(required=False, nullable=True)
-#    gender = GenderField(required=False, nullable=True)
-    pass
 
-class MethodRequest(object):
+class ClientsInterestsRequest(BaseRequest):
+    client_ids = ClientIDsField(required=True)
+    date = DateField(required=False, nullable=True)
+
+
+class OnlineScoreRequest(BaseRequest):
+    first_name = CharField(required=False, nullable=True)
+    last_name = CharField(required=False, nullable=True)
+    email = EmailField(required=False, nullable=True)
+    phone = PhoneField(required=False, nullable=True)
+    birthday = BirthDayField(required=False, nullable=True)
+    gender = GenderField(required=False, nullable=True)
+
+    def validate(self):
+        super(OnlineScoreRequest, self).validate()
+        if not self._errors:
+            if not (("phone" in self.base_fields and "email" in self.base_fields) or
+                    ("first_name" in self.base_fields and "last_name" in self.base_fields) or
+                    ("gender" in self.base_fields and "birthday" in self.base_fields)):
+                self._errors["arguments"] = "No valid arguments pair"
+
+
+
+class MethodRequest(BaseRequest):
     account = CharField(required=False, nullable=True)
     login = CharField(required=True, nullable=True)
     token = CharField(required=True, nullable=True)
@@ -211,10 +235,55 @@ def check_auth(request):
     return False
 
 
+def online_score_handler(request, ctx, store):
+    r = OnlineScoreRequest(**request.arguments)
+    r.validate()
+
+    if not r.is_valid():
+        return r.errors, INVALID_REQUEST
+
+    ctx['has'] = r.base_fields
+    if request.is_admin:
+        return {"score": 42}, OK
+    else:
+        score = get_score(store, r['phone'], r['email'], birthday=r['birthday'], gender=r['gender'],
+                          first_name=r['first_name'], last_name=r['last_name'])
+        return {"score": score}, OK
+
+
+def clients_interests_handler(request, ctx, store):
+    r = ClientsInterestsRequest(**request.arguments)
+    r.validate()
+    if not r.is_valid():
+        return r.errors, INVALID_REQUEST
+
+    response = {}
+    for cid in r.client_ids:
+        response[cid] = get_interests(store, cid)
+    ctx["nclients"] = len(r.client_ids)
+
+    return response, OK
+
+
+
 def method_handler(request, ctx, store):
-    response, code = None, None
-#    return response, code
-    return "None", 200
+    handlers = {"online_score": online_score_handler,
+                "clients_interests": clients_interests_handler}
+
+    method_request = MethodRequest(**request["body"])
+    method_request.validate()
+
+    if not method_request.is_valid():
+        return method_request.errors, INVALID_REQUEST
+
+    if not check_auth(method_request):
+        return ERRORS[FORBIDDEN], FORBIDDEN
+
+    response, code = handlers[method_request.method](method_request, ctx, store)
+
+    return response, code
+
+
 
 class MainHTTPHandler(BaseHTTPRequestHandler):
     router = {
