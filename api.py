@@ -229,11 +229,11 @@ def check_auth(request):
         digest = hashlib.sha512(datetime.datetime.now().strftime("%Y%m%d%H") + ADMIN_SALT).hexdigest()
     else:
         digest = hashlib.sha512(request.account + request.login + SALT).hexdigest()
-    print("digest is " + digest)
-#    if digest == request.token:
-#        return True
-#    return False
-    return True
+#    print("digest is " + digest)
+    if digest == request.token:
+        return True
+    return False
+#    return True
 
 def online_score_handler(request, ctx, store):
     r = OnlineScoreRequest(**request.arguments)
