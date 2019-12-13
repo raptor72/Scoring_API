@@ -13,7 +13,7 @@ from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from six import string_types
 from scoring import get_score, get_interests
 #from store import Store
-Store = None
+#Store = "None"
 
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
@@ -71,8 +71,8 @@ class ArgumentsField(Field):
         if not isinstance(value, dict):
             raise ValueError("This field must be a dict")
 
-    def get_value(self, value):
-        return super().get_value(value)
+#    def get_value(self, value):
+#        return super().get_value(value)
 
 class EmailField(CharField):
     def validate(self, value):
@@ -80,8 +80,8 @@ class EmailField(CharField):
         if "@" not in value:
             raise ValueError("Invalid email address")
 
-    def get_value(self, value):
-        return super().get_value(value)
+#    def get_value(self, value):
+#        return super().get_value(value)
 
 
 class PhoneField(Field):
@@ -91,8 +91,8 @@ class PhoneField(Field):
         if not len(str(value)) == 11 or not str(value).startswith("7")  or not str(value).isdigit():
             raise ValueError("Phone number should be 7**********")
 
-    def get_value(self, value):
-        return super().get_value(value)
+#    def get_value(self, value):
+#        return super().get_value(value)
 
 class DateField(Field):
     def validate(self, value):
@@ -229,7 +229,7 @@ def check_auth(request):
         digest = hashlib.sha512(datetime.datetime.now().strftime("%Y%m%d%H") + ADMIN_SALT).hexdigest()
     else:
         digest = hashlib.sha512(request.account + request.login + SALT).hexdigest()
-#    print("digest is " + digest)
+    print("digest is " + digest)
     if digest == request.token:
         return True
     return False
@@ -246,8 +246,7 @@ def online_score_handler(request, ctx, store):
     if request.is_admin:
         return {"score": 42}, OK
     else:
-        score = get_score(store, r['phone'], r['email'], birthday=r['birthday'], gender=r['gender'],
-                          first_name=r['first_name'], last_name=r['last_name'])
+        score = get_score(store, r['phone'], r['email'], birthday=r['birthday'], gender=r['gender'], first_name=r['first_name'], last_name=r['last_name'])
         return {"score": score}, OK
 
 
