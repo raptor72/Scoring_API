@@ -13,7 +13,6 @@ from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from six import string_types
 from scoring import get_score, get_interests
 #from store import Store
-#Store = "None"
 
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
@@ -133,16 +132,24 @@ class ClientIDsField(Field):
     def get_value(self, value):
         return super().get_value(value)
 
+#class FieldOwner(type):
+#    def __new__(meta, name, bases, attrs):
+#        new_class = super(FieldOwner, meta).__new__(meta, name, bases, attrs)
+#        fields = {}
+#        for field_name, field in attrs.items():
+#            if isinstance(field, Field):
+#                fields[field_name] = field
+#        new_class.fields = fields
+#        return new_class
+
 class FieldOwner(type):
     def __new__(meta, name, bases, attrs):
-        new_class = super(FieldOwner, meta).__new__(meta, name, bases, attrs)
         fields = {}
         for field_name, field in attrs.items():
             if isinstance(field, Field):
                 fields[field_name] = field
-        new_class.fields = fields
-#        return super(FieldOwner, meta).__new__(meta, name, bases, attrs)
-        return new_class
+        attrs['fields'] = fields
+        return super(FieldOwner, meta).__new__(meta, name, bases, attrs)
 
 
 class BaseRequest(object):
@@ -233,7 +240,6 @@ def check_auth(request):
     if digest == request.token:
         return True
     return False
-#    return True
 
 def online_score_handler(request, ctx, store):
     r = OnlineScoreRequest(**request.arguments)
