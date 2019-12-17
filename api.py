@@ -14,6 +14,8 @@ from six import string_types
 from scoring import get_score, get_interests
 #from store import Store
 
+import scoring
+
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
 ADMIN_SALT = "42"
@@ -61,7 +63,6 @@ class CharField(Field):
 
     def get_value(self, value):
         return str(value)
-
 
 
 
@@ -199,6 +200,12 @@ class ClientsInterestsRequest(BaseRequest):
     client_ids = ClientIDsField(required=True)
     date = DateField(required=False, nullable=True)
 
+    def fill_context(self, ctx):
+        ctx['nclients'] = len(self.client_ids)
+
+    def get_result(self, store, is_admin=False):
+        return {clid: scoring.get_interests(store, clid)
+                for clid in self.client_ids}
 
 class OnlineScoreRequest(BaseRequest):
     first_name = CharField(required=False, nullable=True)
@@ -216,6 +223,31 @@ class OnlineScoreRequest(BaseRequest):
                     ("gender" in self.base_fields and "birthday" in self.base_fields)):
                 self._errors["arguments"] = "No valid arguments pair"
 
+    def validate_fields(self):
+        super(OnlineScoreRequest, self).validate_fields()
+        if not ((self.first_name and self.last_name) or
+                (self.email and self.phone) or
+                (self.birthday and self.gender is not None)):
+            raise ValueError("At least one of the pairs should be defined: "
+                             "first/last name, email/phone, birthday/gender")
+
+    def fill_context(self, ctx):
+        ctx['has'] = [f for f in self.fields if getattr(self, f) is not None]
+
+    def get_result(self, store, is_admin=False):
+        if is_admin:
+            return {"score": 42}
+        return {
+            "score": scoring.get_score(
+                store,
+                self.phone,
+                self.email,
+                self.birthday,
+                self.gender,
+                self.first_name,
+                self.last_name
+            )
+        }
 
 
 class MethodRequest(BaseRequest):
@@ -224,7 +256,6 @@ class MethodRequest(BaseRequest):
     token = CharField(required=True, nullable=True)
     arguments = ArgumentsField(required=True, nullable=True)
     method = CharField(required=True, nullable=False)
-
 
     @property
     def is_admin(self):
@@ -236,7 +267,7 @@ def check_auth(request):
         digest = hashlib.sha512(datetime.datetime.now().strftime("%Y%m%d%H") + ADMIN_SALT).hexdigest()
     else:
         digest = hashlib.sha512(request.account + request.login + SALT).hexdigest()
-    print("digest is " + digest)
+#    print("digest is " + digest)
     if digest == request.token:
         return True
     return False
@@ -272,11 +303,18 @@ def clients_interests_handler(request, ctx, store):
 
 
 def method_handler(request, ctx, store):
-    handlers = {"online_score": online_score_handler,
-                "clients_interests": clients_interests_handler}
+    handlers = {"online_score": OnlineScoreRequest,
+                "clients_interests": ClientsInterestsRequest}
 
-    method_request = MethodRequest(**request["body"])
-    method_request.validate()
+    method_request = MethodRequest(**request['body'])
+#    method_request.validate()
+#    print(dir(method_request)) # 'account', 'arguments', 'base_fields', 'errors', 'fields', 'is_admin', 'is_valid', 'login', 'method', 'token', 'validate'
+#    print(method_request.arguments)#{u'first_name': u'S', u'last_name': u'S', u'gender': 1, u'phone': u'79175002040', u'birthday': u'01.01.1990', u'email': u'stupnikov@otus.ru'}
+#    print(method_request.method) # online_score
+    try:
+        method_request.validate()
+    except ValueError, e:
+        return e.message, INVALID_REQUEST
 
     if not method_request.is_valid():
         return method_request.errors, INVALID_REQUEST
@@ -284,9 +322,26 @@ def method_handler(request, ctx, store):
     if not check_auth(method_request):
         return ERRORS[FORBIDDEN], FORBIDDEN
 
-    response, code = handlers[method_request.method](method_request, ctx, store)
+#    if method_request.method not in handlers:
+#        err = "Unknown method %s, choose any of: %s" % (method_request.method, request_map.keys())
+#        return err, INVALID_REQUEST
 
-    return response, code
+
+#    req = handlers[online_score]({u'first_name': u'S', u'last_name': u'S', u'gender': 1, u'phone': u'79175002040', u'birthday': u'01.01.1990', u'email': u'stupnikov@otus.ru'})
+#    eq OnlineScoreRequest(args)
+#    req = handlers[method_request.method](method_request.arguments)
+    req = handlers[method_request.method](**method_request.arguments)
+#    print("req is ", req)
+    try:
+#        req.validate_fields()
+        req.validate()
+    except ValueError, e:
+        return e.message, INVALID_REQUEST
+
+    req.fill_context(ctx)
+    result = req.get_result(store, method_request.is_admin)
+
+    return result, OK
 
 
 
