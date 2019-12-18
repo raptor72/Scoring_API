@@ -9,10 +9,7 @@ import hashlib
 import uuid
 from optparse import OptionParser
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
-#from http.server import HTTPServer, BaseHTTPRequestHandler
 from six import string_types
-from scoring import get_score, get_interests
-
 import scoring
 
 SALT = "Otus"
@@ -213,17 +210,8 @@ class OnlineScoreRequest(BaseRequest):
     def get_result(self, store, is_admin=False):
         if is_admin:
             return {"score": 42}
-        return {
-            "score": scoring.get_score(
-                store,
-                self.phone,
-                self.email,
-                self.birthday,
-                self.gender,
-                self.first_name,
-                self.last_name
-            )
-        }
+        return {"score": scoring.get_score(store, self['phone'], self['email'], birthday=self['birthday'], gender=self['gender'],
+                                  first_name=self['first_name'], last_name=self['last_name'])}
 
 
 class MethodRequest(BaseRequest):
