@@ -43,7 +43,7 @@ GENDERS = {
 
 
 class Field(object):
-    empty_values = (None, (), [], '')
+    empty_values = (None, (), [], '', {})
 
     def __init__(self, required=False, nullable=False):
         self.required = required
@@ -51,6 +51,7 @@ class Field(object):
 
     def validate(self, value):
         pass
+
 
     def get_value(self, value):
         return value
@@ -125,23 +126,22 @@ class GenderField(Field):
 
 
 class ClientIDsField(Field):
+#    def validate(self, values):
+#        if (not isinstance(values, list) or
+#                not all(isinstance(i, int) for i in values)):
+#            raise ValueError("Client IDs should be list of ints")
+
+
     def validate(self, values):
-        if (not isinstance(values, list) or
-                not all(isinstance(i, int) for i in values)):
-            raise ValueError("Client IDs should be list of ints")
+        if not isinstance(values, list):
+            raise ValueError("Invalid data type, must be an array")
+        if not all(isinstance(v, int) and v >= 0 for v in values):
+            raise ValueError("All elements must be positive integers")
+
 
     def get_value(self, value):
         return super().get_value(value)
 
-#class FieldOwner(type):
-#    def __new__(meta, name, bases, attrs):
-#        new_class = super(FieldOwner, meta).__new__(meta, name, bases, attrs)
-#        fields = {}
-#        for field_name, field in attrs.items():
-#            if isinstance(field, Field):
-#                fields[field_name] = field
-#        new_class.fields = fields
-#        return new_class
 
 class FieldOwner(type):
     def __new__(meta, name, bases, attrs):
@@ -151,6 +151,7 @@ class FieldOwner(type):
                 fields[field_name] = field
         attrs['fields'] = fields
         return super(FieldOwner, meta).__new__(meta, name, bases, attrs)
+
 
 
 class BaseRequest(object):
@@ -172,6 +173,7 @@ class BaseRequest(object):
         else:
             return None
 
+
     def validate(self):
         for name, field in self.fields.items():
             if name not in self.base_fields:
@@ -188,12 +190,54 @@ class BaseRequest(object):
             except ValueError as e:
                 self._errors[name] = e
 
-    @property
-    def errors(self):
-        return self._errors
 
-    def is_valid(self):
-        return not self.errors
+    def validate(self):
+        cls = self.__class__
+        for field in cls.fields:
+#            print(field) #login account token method arguments first_name last_name gender phone birthday email
+            d = getattr(cls, field)
+#            print(d.required) # True \ False
+#            print(d) #<__main__.CharField object at 0x7fe060758c10>
+#            print(dir(d)) #['__class__', '__delattr__', '__dict__', '__doc__', '__format__', '__getattribute__', '__hash__', '__init__', '__module__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', 
+                           #'__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'empty_values', 'get_value', 'nullable', 'required', 'validate']))
+#            print(self.__dict__) #{'account': u'horns&hoofs', 'token': u'55cc9ce545bcd144300fe9efc28e65d415b923ebb6be1e19d2750a2c03e80dd209a27954dca045e5bb12418e7d89b6d718a9e35af34e14e1d5bcd5a08f21fc95', 'method': u'online_score', 'base_fields': [u'login', u'account', u'arguments', u'token', u'method'], 'arguments': {}, 'login': u'h&f', '_errors': {}}
+            if field not in self.__dict__:
+#                print(field) #first_name last_name gender phone birthday email
+                if d.required:
+#                    print('required')
+                    raise ValueError(
+                        "Required field %s is not defined!") # % field)
+                continue
+            value = self.__dict__[field]
+#            print(value) # h&f horns&hoofs 5...9c online_score {}
+#            if not d.nullable and not value:
+#            if not d.nullable and value in [None, (), [], '', {}]:
+#            print(d.__class__.__name__, value, d.nullable)
+#            if not d.nullable and value in Field.empty_values:
+            if not d.nullable and value in Field.empty_values:
+#                print(field)
+                raise ValueError("Non-nullable field %s is %r" %
+                                 (field, value))
+            if hasattr(d, 'validate') and callable(d.validate):
+                try:
+                    d.validate(value)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError("Field %s (type %s) invalid: %s (%r)" %
+                                     (
+                                         field,
+                                         d.__class__.__name__,
+                                         exc.message,
+                                         value
+                                     )
+                                     )
+
+
+#    @property
+#    def errors(self):
+#        return self._errors
+
+#    def is_valid(self):
+#        return not self.errors
 
 
 class ClientsInterestsRequest(BaseRequest):
@@ -217,22 +261,24 @@ class OnlineScoreRequest(BaseRequest):
 
     def validate(self):
         super(OnlineScoreRequest, self).validate()
-        if not self._errors:
-            if not (("phone" in self.base_fields and "email" in self.base_fields) or
-                    ("first_name" in self.base_fields and "last_name" in self.base_fields) or
-                    ("gender" in self.base_fields and "birthday" in self.base_fields)):
-                self._errors["arguments"] = "No valid arguments pair"
-
-    def validate_fields(self):
-        super(OnlineScoreRequest, self).validate_fields()
-        if not ((self.first_name and self.last_name) or
-                (self.email and self.phone) or
-                (self.birthday and self.gender is not None)):
+#        if not self._errors:
+        if not (("phone" in self.base_fields and "email" in self.base_fields) or
+                ("first_name" in self.base_fields and "last_name" in self.base_fields) or
+                ("gender" in self.base_fields and "birthday" in self.base_fields)):
             raise ValueError("At least one of the pairs should be defined: "
-                             "first/last name, email/phone, birthday/gender")
+                         "first/last name, email/phone, birthday/gender")
+
+#    def validate(self):
+#        super(OnlineScoreRequest, self).validate()
+#        if not ((self.first_name and self.last_name) or
+#                (self.email and self.phone) or
+#                (self.birthday and self.gender is not None)):
+#            raise ValueError("At least one of the pairs should be defined: "
+#                             "first/last name, email/phone, birthday/gender")
+
 
     def fill_context(self, ctx):
-        ctx['has'] = [f for f in self.fields if getattr(self, f) is not None]
+        ctx['has'] = [f for f in self.base_fields if getattr(self, f) is not None]
 
     def get_result(self, store, is_admin=False):
         if is_admin:
@@ -272,59 +318,35 @@ def check_auth(request):
         return True
     return False
 
-def online_score_handler(request, ctx, store):
-    r = OnlineScoreRequest(**request.arguments)
-    r.validate()
-
-    if not r.is_valid():
-        return r.errors, INVALID_REQUEST
-
-    ctx['has'] = r.base_fields
-    if request.is_admin:
-        return {"score": 42}, OK
-    else:
-        score = get_score(store, r['phone'], r['email'], birthday=r['birthday'], gender=r['gender'], first_name=r['first_name'], last_name=r['last_name'])
-        return {"score": score}, OK
-
-
-def clients_interests_handler(request, ctx, store):
-    r = ClientsInterestsRequest(**request.arguments)
-    r.validate()
-    if not r.is_valid():
-        return r.errors, INVALID_REQUEST
-
-    response = {}
-    for cid in r.client_ids:
-        response[cid] = get_interests(store, cid)
-    ctx["nclients"] = len(r.client_ids)
-
-    return response, OK
-
-
 
 def method_handler(request, ctx, store):
     handlers = {"online_score": OnlineScoreRequest,
                 "clients_interests": ClientsInterestsRequest}
 
     method_request = MethodRequest(**request['body'])
-#    method_request.validate()
+#    print(method_request.validate()) #None
 #    print(dir(method_request)) # 'account', 'arguments', 'base_fields', 'errors', 'fields', 'is_admin', 'is_valid', 'login', 'method', 'token', 'validate'
 #    print(method_request.arguments)#{u'first_name': u'S', u'last_name': u'S', u'gender': 1, u'phone': u'79175002040', u'birthday': u'01.01.1990', u'email': u'stupnikov@otus.ru'}
 #    print(method_request.method) # online_score
+#    method_request.validate() # None
+
+#    if not method_request.is_valid():
+#        return method_request.errors, INVALID_REQUEST
+
     try:
         method_request.validate()
     except ValueError, e:
         return e.message, INVALID_REQUEST
 
-    if not method_request.is_valid():
-        return method_request.errors, INVALID_REQUEST
+#    if not check_auth(method_request):
+#        return None, FORBIDDEN
 
     if not check_auth(method_request):
         return ERRORS[FORBIDDEN], FORBIDDEN
 
-#    if method_request.method not in handlers:
-#        err = "Unknown method %s, choose any of: %s" % (method_request.method, request_map.keys())
-#        return err, INVALID_REQUEST
+    if method_request.method not in handlers:
+        err = "Unknown method %s, choose any of: %s" % (method_request.method, handlers.keys())
+        return err, INVALID_REQUEST
 
 
 #    req = handlers[online_score]({u'first_name': u'S', u'last_name': u'S', u'gender': 1, u'phone': u'79175002040', u'birthday': u'01.01.1990', u'email': u'stupnikov@otus.ru'})
@@ -332,8 +354,8 @@ def method_handler(request, ctx, store):
 #    req = handlers[method_request.method](method_request.arguments)
     req = handlers[method_request.method](**method_request.arguments)
 #    print("req is ", req)
+
     try:
-#        req.validate_fields()
         req.validate()
     except ValueError, e:
         return e.message, INVALID_REQUEST
