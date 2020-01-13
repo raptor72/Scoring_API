@@ -91,7 +91,7 @@ class DateField(Field):
         return datetime.datetime.strptime(value, '%d.%m.%Y')
 
 
-class BirthDayField(Field):
+class BirthDayField(DateField):
     def validate(self, value):
         super(BirthDayField, self).validate(value)
         bdate = datetime.datetime.strptime(value, '%d.%m.%Y')
@@ -135,7 +135,6 @@ class BaseRequest(object):
     __metaclass__ = FieldOwner
 
     def __init__(self, **kwargs):
-        self._errors = {}
         self.base_fields = []
         for field_name, value in kwargs.items():
             setattr(self, field_name, value)
