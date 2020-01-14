@@ -43,21 +43,18 @@ class Field(object):
     def __init__(self, required=False, nullable=False):
         self.required = required
         self.nullable = nullable
+        self.label = None
 
-    def validate(self, value):
-        pass
-
-    def get_value(self, value):
-        return value
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        return instance.__dict__.get(self.label)
 
 
 class CharField(Field):
     def validate(self, value):
         if not isinstance(value, string_types):
             raise ValueError("This field must be a string")
-
-    def get_value(self, value):
-        return str(value)
 
 
 class ArgumentsField(Field):
@@ -87,9 +84,6 @@ class DateField(Field):
         except ValueError:
             raise ValueError("Incorect date format, should be DD.MM.YYYY")
 
-    def get_value(self, value):
-        return datetime.datetime.strptime(value, '%d.%m.%Y')
-
 
 class BirthDayField(DateField):
     def validate(self, value):
@@ -98,26 +92,17 @@ class BirthDayField(DateField):
         if datetime.datetime.now().year - bdate.year > 70:
             raise ValueError("Incorrect birth day")
 
-    def get_value(self, value):
-        return datetime.datetime.strptime(value, '%d.%m.%Y')
-
 
 class GenderField(Field):
     def validate(self, value):
         if value not in GENDERS:
             raise ValueError("Gender must be equal to 0, 1 or 2")
 
-    def get_value(self, value):
-        return int(value)
-
 
 class ClientIDsField(Field):
     def validate(self, values):
         if not isinstance(values, list) or not all(isinstance(v, int) and v >= 0 for v in values):
             raise ValueError("Client IDs should be list or positive integers")
-
-    def get_value(self, value):
-        return super().get_value(value)
 
 
 class FieldOwner(type):
@@ -141,13 +126,6 @@ class BaseRequest(object):
                 setattr(self, field_name, value)
                 self.base_fields.append(field_name)
 
-    def __getitem__(self, name):
-        if name in self.base_fields:
-            value = getattr(self, str(name), None)
-            field = self.fields[name]
-            return field.get_value(value)
-        else:
-            return None
 
     def validate(self):
         cls = self.__class__
@@ -210,8 +188,7 @@ class OnlineScoreRequest(BaseRequest):
     def get_result(self, store, is_admin=False):
         if is_admin:
             return {"score": 42}
-        return {"score": scoring.get_score(store, self['phone'], self['email'], birthday=self['birthday'], gender=self['gender'],
-                                  first_name=self['first_name'], last_name=self['last_name'])}
+        return {"score": scoring.get_score(store, self.phone, self.email, self.birthday, self.gender, self.first_name, self.last_name)}
 
 
 class MethodRequest(BaseRequest):
