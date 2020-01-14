@@ -37,13 +37,17 @@
 
 В ответ выдается число, полученное вызовом функции get_score (см. scoring.py). Но если пользователь админ (см. check_auth), то нужно всегда отавать 42.
 
-#### Пример вызова валидного запроса online_score:
+#### Примеры вызовов валидного запроса online_score:
 
     curl -X POST -H "Content-Type: application/json" -d '{"account": "horns&hoofs", "login": "h&f", "method": "online_score", "token":      "55cc9ce545bcd144300fe9efc28e65d415b923ebb6be1e19d2750a2c03e80dd209a27954dca045e5bb12418e7d89b6d718a9e35af34e14e1d5bcd5a08f21fc95", "arguments": {"phone": "79177002040", "email": "ipetrov@gmail.com", "first_name": "Ivan", "last_name": "Petrov", "birthday": "01.01.1990", "gender": 1}}' http://127.0.0.1:8080/method/
-    
-Пример ответа:
+
+    curl -X POST -H "Content-Type: application/json" -d '{"account": "horns&hoofs", "login": "h&f", "method": "online_score", "token":      "55cc9ce545bcd144300fe9efc28e65d415b923ebb6be1e19d2750a2c03e80dd209a27954dca045e5bb12418e7d89b6d718a9e35af34e14e1d5bcd5a08f21fc95", "arguments": {"phone": "79177002040", "email": "ipetrov@gmail.com", "first_name": "Ivan", "birthday": "01.01.1990"}}' http://127.0.0.1:8080/method/
+
+Примеры соответствующих ответов:
 
     {"code": 200, "response": {"score": 5.0}}
+    
+    {"code": 200, "response": {"score": 3.0}}
     
 #### Метод clients_interests.
 Аргументы:
