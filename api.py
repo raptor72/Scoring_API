@@ -105,19 +105,19 @@ class ClientIDsField(Field):
             raise ValueError("Client IDs should be list or positive integers")
 
 
-class FieldOwner(type):
+class FieldsMetaclass(type):
     def __new__(meta, name, bases, attrs):
         fields = {}
         for field_name, field in attrs.items():
             if isinstance(field, Field):
                 fields[field_name] = field
         attrs['fields'] = fields
-        return super(FieldOwner, meta).__new__(meta, name, bases, attrs)
+        return super(FieldsMetaclass, meta).__new__(meta, name, bases, attrs)
 
 
 
 class BaseRequest(object):
-    __metaclass__ = FieldOwner
+    __metaclass__ = FieldsMetaclass
 
     def __init__(self, **kwargs):
         self.base_fields = []
