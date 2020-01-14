@@ -158,13 +158,6 @@ class ClientsInterestsRequest(BaseRequest):
     client_ids = ClientIDsField(required=True)
     date = DateField(required=False, nullable=True)
 
-    def fill_context(self, ctx):
-        ctx['nclients'] = len(self.client_ids)
-
-    def get_result(self, store, is_admin=False):
-        return {clid: scoring.get_interests(store, clid)
-                for clid in self.client_ids}
-
 
 class OnlineScoreRequest(BaseRequest):
     first_name = CharField(required=False, nullable=True)
@@ -181,14 +174,6 @@ class OnlineScoreRequest(BaseRequest):
                 ("gender" in self.base_fields and "birthday" in self.base_fields)):
             raise ValueError("At least one of the pairs should be defined: "
                          "first/last name, email/phone, birthday/gender")
-
-    def fill_context(self, ctx):
-        ctx['has'] = [f for f in self.base_fields if getattr(self, f) is not None]
-
-    def get_result(self, store, is_admin=False):
-        if is_admin:
-            return {"score": 42}
-        return {"score": scoring.get_score(store, self.phone, self.email, self.birthday, self.gender, self.first_name, self.last_name)}
 
 
 class MethodRequest(BaseRequest):
@@ -232,15 +217,29 @@ def method_handler(request, ctx, store):
                                                         request_map.keys())
         return err, INVALID_REQUEST
 
-    req = handlers[method_request.method](**method_request.arguments)
+    if method_request.method in handlers:
+        req = handlers[method_request.method](**method_request.arguments)
+        try:
+            req.validate()
+        except ValueError, e:
+            return e.message, INVALID_REQUEST
 
-    try:
-        req.validate()
-    except ValueError, e:
-        return e.message, INVALID_REQUEST
+    if method_request.method == "online_score":
+        score_req = OnlineScoreRequest(**method_request.arguments)
 
-    req.fill_context(ctx)
-    result = req.get_result(store, method_request.is_admin)
+        ctx['has'] = [f for f in score_req.base_fields if getattr(score_req, f) is not None]
+
+        if method_request.is_admin:
+            return {"score": 42}, OK
+        result = {"score": scoring.get_score(store, score_req.phone, score_req.email,
+                 score_req.birthday, score_req.gender, score_req.first_name, score_req.last_name)}
+
+    if method_request.method == "clients_interests":
+        interests_req = ClientsInterestsRequest(**method_request.arguments)
+
+        ctx['nclients'] = len(interests_req.client_ids)
+        result = {clid: scoring.get_interests(store, clid)
+                for clid in interests_req.client_ids}
 
     return result, OK
 
