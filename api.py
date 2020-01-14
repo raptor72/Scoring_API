@@ -137,8 +137,9 @@ class BaseRequest(object):
     def __init__(self, **kwargs):
         self.base_fields = []
         for field_name, value in kwargs.items():
-            setattr(self, field_name, value)
-            self.base_fields.append(field_name)
+            if field_name in self.fields.keys():
+                setattr(self, field_name, value)
+                self.base_fields.append(field_name)
 
     def __getitem__(self, name):
         if name in self.base_fields:
